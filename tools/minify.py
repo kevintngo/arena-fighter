@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tokenizer-based minifier for the VOIDLIGHT DEPTHS bundle.
+"""Tokenizer-based minifier for the VOIDLIGHT bundles.
    - strips comments and needless whitespace from JS and embedded GLSL
    - consistent whole-program identifier renaming (variables and own property names alike), skipping every name
      that is a keyword, a platform API name, a word that occurs inside any string, or matches a dynamic-key prefix

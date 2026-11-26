@@ -1,5 +1,5 @@
 // =====================================================================================
-//  VOIDLIGHT DEPTHS  —  a self-playing isometric space-opera descent
+//  VOIDLIGHT DUEL  —  a ring-out arena fighter on the engine of Voidlight Depths
 //  Everything (geometry, textures, shaders, sound, music, levels) is generated in code.
 // =====================================================================================
 
