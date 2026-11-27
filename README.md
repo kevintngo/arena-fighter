@@ -6,7 +6,7 @@ A ring-out arena fighter in one self-contained HTML file (about 148 KB, no engin
 
 ![Voidlight Duel](trailer/voidlight-duel-cover.png)
 
-Gameplay clip: [trailer/voidlight-duel-x.mp4](trailer/voidlight-duel-x.mp4)
+Gameplay trailer (16:9): [trailer/voidlight-duel-16x9.mp4](trailer/voidlight-duel-16x9.mp4) (square clip: [trailer/voidlight-duel-x.mp4](trailer/voidlight-duel-x.mp4))
 
 ## How it plays
 

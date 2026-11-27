@@ -150,7 +150,7 @@ function* buildArena(seed, depth, theme) {
     occ: new Uint8Array(N), blocked: new Uint8Array(N), voidc: new Uint8Array(N), keep: new Uint8Array(N), doorBlock: new Uint8Array(N), doorAt: new Uint8Array(N), hazardCell: new Uint8Array(N),
     obst: new Array(N), lights: [], spots: [], emits: [], hazes: [], anim: [], ownGeoms: [], group: new Group(), slots: [], corrSlots: [],
     hazSpecs: [], cacheSpecs: [], breakSpecs: [], relics: [], keyPos: null, items: [], shots: [], zones: [], hazards: [],
-    cx: c0 * TILE, cz: c0 * TILE, R: 0, blastR: 0, koY: -1.1, spawn: [], cells: [], kind: '', arch: ''
+    cx: c0 * TILE, cz: c0 * TILE, R: 0, blastR: 0, koY: theme.id === 'foundry' ? -2.25 : -4.6, spawn: [], cells: [], kind: '', arch: ''
   };
   // ---- the platform
   const kind = depth <= 1 ? 'oct' : rng.weighted(ARENA_KINDS), hs = clamp(4.2 - depth * .03 + rng.range(-.45, .45), 3.6, 4.7) + (kind === 'twin' ? 1.2 : kind === 'cross' ? 1.1 : kind === 'diamond' ? 1.4 : kind === 'disc' || kind === 'ring' ? .5 : 0), rot = rng.chance(.5);
@@ -233,7 +233,7 @@ function* buildArena(seed, depth, theme) {
       const X0 = x * TILE, X1 = X0 + TILE, Z0 = z * TILE, Z1 = Z0 + TILE;
       if (d.voidc[i]) {
         const vt = d.voidc[i], lava = vt === 4, y = lava ? -2.3 : -3.6;
-        bt.quad(lava ? 'lava' : 'portal', X0, y, Z1, X1, y, Z1, X1, y, Z0, X0, y, Z0, 0, 1, 0);
+        if (lava) bt.quad('lava', X0, y, Z1, X1, y, Z1, X1, y, Z0, X0, y, Z0, 0, 1, 0);
         for (let q = 0; q < 4; q++) { const nx = x + DX4[q], nz = z + DZ4[q]; if (nx < 0 || nz < 0 || nx >= W || nz >= H || d.voidc[nz * W + nx]) continue; wallSide(bt, 'wall', nx, nz, (q + 2) & 3, y, 0, lava ? 1.5 : .3, lava ? .8 : 1, lava ? 1.3 : 1, lava ? .7 : 1, lava ? .4 : 1); wallSide(bt, 'trim', nx, nz, (q + 2) & 3, -.14, 0, 1, 1); }
         continue;
       }

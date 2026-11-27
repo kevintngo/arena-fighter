@@ -36,7 +36,7 @@ class Fighter {
     this.chT = 0; this.runT = 0; this.airDodged = false; this.ledgeCd = 0; this.rollN = 0; this.rollCool = 0; this.techT = 0;
     this.hold = null; this.heldBy = null; this.throwT = 0; this.counterT = 0; this.item = null; this.over = 0; this.aegis = 0; this.tether = false; this.slowT = 0;
     this.lastBy = null; this.lastHitT = -9; this.kos = 0; this.dmgDone = 0; this.store = 0; this.mark = 0; this.float = 0; this.teeter = false;
-    this.ph = 0; this.moveAmt = 0; this.flash = 0; this.pop = 0; this.rX = 0; this.rY = 0; this.arcA = 0; this.arcFrom = 0; this.arcTo = 0; this.speedNow = 0; this.lastStep = 0; this.trailT = 0;
+    this.ph = 0; this.moveAmt = 0; this.flash = 0; this.pop = 0; this.rX = 0; this.rY = 0; this.arcA = 0; this.arcFrom = 0; this.arcTo = 0; this.speedNow = 0; this.lastStep = 0; this.trailT = 0; this.fallSc = 1; this.fallTr = []; this.fallTrT = 0;
     const tp = RIGS[def.rig](); this.rig = rigInstance(tp, true); this.root = this.rig.root; this.root.scale.setScalar(def.scale); scene.add(this.root);
     for (const n of ['armL', 'armR', 'torso', 'head', 'blade']) if (this.rig.b[n]) this.rig.b[n].rotation.order = 'YXZ';
     if (this.rig.mats.cloth) this.rig.mats.cloth.side = DoubleSide;
@@ -65,7 +65,7 @@ class Fighter {
   dispose() { scene.remove(this.root); scene.remove(this.bub); scene.remove(this.ring); if (this.cloak) { scene.remove(this.cloak); this.cloak.geometry.dispose(); } if (this.ownG) for (const g of this.ownG) g.dispose(); rigDispose(this.rig); if (this.def.drop) this.def.drop(this); }
   fresh() {
     this.cancel(); if (this.def.drop) this.def.drop(this); this.pct = 0; this.sh = 100; this.inv = 0; this.armorT = 0; this.item = null; this.over = 0; this.aegis = 0; this.tether = false; this.slowT = 0; this.store = 0; this.heldBy = null; this.lastBy = null;
-    this.airDodged = false; this.runT = 0; this.flash = 0; this.pop = 0; this.rX = 0; for (const k of BTN) { this.I[k] = this.P[k] = false; this.buf[k] = 0; } this.I.mx = this.I.mz = 0;
+    this.airDodged = false; this.runT = 0; this.flash = 0; this.pop = 0; this.rX = 0; this.fallSc = 1; this.fallTr.length = 0; this.root.scale.setScalar(this.def.scale); for (const k of BTN) { this.I[k] = this.P[k] = false; this.buf[k] = 0; } this.I.mx = this.I.mz = 0;
     this.root.visible = true; this.ring.visible = true; if (this.cloak) this.cloak.visible = true;
   }
   place(x, z, yaw) { this.x = x; this.z = z; this.y = 0; this.yaw = yaw; this.vx = this.vy = this.vz = this.kx = this.kz = 0; this.air = false; this.root.position.set(x, 0, z); this.root.rotation.set(0, yaw, 0); this.root.updateMatrixWorld(true); if (this.cloak) this.resetCloak(); }
@@ -119,10 +119,14 @@ class Fighter {
     } else if (S === 'down') { if (this.st > .46) { this.setState('idle'); this.inv = Math.max(this.inv, .18); } }
     else if (S === 'dizzy') { this.vx = damp(this.vx, 0, 10, dt); this.vz = damp(this.vz, 0, 10, dt); if (R() < dt * 9) FX.add.spawn(this.x + RS(.5), 1.9 * d.scale, this.z + RS(.5), RS(.5), .4, RS(.5), .5, .08, 3, 3, 1, 0, 0); if (this.st > 2.3) { this.sh = 40; this.setState('idle'); } }
     else if (S === 'held') { const g = this.heldBy; if (!g || g.hold !== this) { this.heldBy = null; this.setState(this.air ? 'air' : 'idle'); } }
-    else if (S === 'fall') {             // over the edge: nothing left to do but drop. A few thin speed lines, nothing soft
-      this.vx = damp(this.vx, 0, 2, dt); this.vz = damp(this.vz, 0, 2, dt); const c = d.col, h = 1.9 * d.scale;
-      for (let i = 0; i < 3; i++) { const a = i * 2.1 + this.side, ox = Math.cos(a) * .32, oz = Math.sin(a) * .32; Arcs.line(this.x + ox, this.y + h, this.z + oz, this.x + ox, this.y + h + .5 + i * .22, this.z + oz, c[0] * .12, c[1] * .12, c[2] * .12); }
-    } else if (S === 'dead') { if (this.stocks > 0 && this.st > 1.25) this.respawn(); }
+    else if (S === 'fall') {             // over the edge: plummeting and shrinking into the abyss, leaving a clean arc trail
+      this.vx = damp(this.vx, 0, .9, dt); this.vz = damp(this.vz, 0, .9, dt); const c = d.col, cm = Math.max(c[0], c[1], c[2], 1), nr = c[0] / cm, ng = c[1] / cm, nb = c[2] / cm, tr = this.fallTr;
+      this.fallTrT -= dt;
+      if (this.fallTrT <= 0) { this.fallTrT = .022; tr.push(this.x, this.y + .9 * d.scale * this.fallSc, this.z); if (tr.length > 36) tr.splice(0, 3); }
+      const n = tr.length / 3;
+      for (let i = 1; i < n; i++) { const a = (i / n) * (i / n) * .85, j = i * 3; Arcs.line(tr[j - 3], tr[j - 2], tr[j - 1], tr[j], tr[j + 1], tr[j + 2], nr * a + .2 * a, ng * a + .2 * a, nb * a + .2 * a); }
+      if (R() < dt * 16) FX.add.spawn(this.x + RS(.25 * this.fallSc), this.y + .7 * d.scale * this.fallSc, this.z + RS(.25 * this.fallSc), RS(.4), R(.6, 2.2), RS(.4), .35, .07 * this.fallSc + .02, c[0] * .6, c[1] * .6, c[2] * .6, 0, 1.5);
+    } else if (S === 'dead') { if (this.stocks > 0 && this.st > .95) this.respawn(); }
     else if (S === 'respawn') { const p = sat(this.st / .9); this.y = 7 * (1 - p) * (1 - p); const c = d.col; if (R() < dt * 40) FX.add.spawn(this.x + RS(.5), this.y + R(0, 5), this.z + RS(.5), 0, R(2, 6), 0, .4, .07, c[0], c[1], c[2], 0, 0); if (p >= 1) { this.y = 0; this.setState('idle'); this.inv = 1.7; SFX.play('rise', this.x, this.z, .5, 1.4); } }
     this.physics(dt);
     this.animate(dt);
@@ -210,12 +214,13 @@ class Fighter {
     else if (up > 0 || wasAir) { this.air = true; this.vy = Math.max(up, wasAir ? 2 : 0); this.y = Math.max(this.y, .03); }
     this.setState('hurt'); this.yaw = Math.atan2(-dx, -dz);
   }
-  ko() {
-    if (this.busy && this.state !== 'fall') return; if (game.state !== 'fight') { this.rescue(true); return; } this.cancel(); this.stocks--; this.lastPct = this.pct; Shatter.burst(this); this.flash = 1; this.setState('dead'); this.root.visible = false; this.bub.visible = false; this.ring.visible = false; if (this.cloak) this.cloak.visible = false;
+  ko(mode = 'void') {
+    if (this.busy && this.state !== 'fall') return; if (game.state !== 'fight') { this.rescue(true); return; } this.cancel(); this.stocks--; this.lastPct = this.pct; this.koMode = mode; VoidFX.burst(this, mode); this.flash = 1; this.setState('dead'); this.root.visible = false; this.bub.visible = false; this.ring.visible = false; if (this.cloak) this.cloak.visible = false;
+    this.fallSc = 1; this.fallTr.length = 0; this.root.scale.setScalar(this.def.scale);
     this.pct = 0; this.over = 0; this.aegis = 0; this.item = null; this.air = false; this.vx = this.vz = this.kx = this.kz = this.vy = 0; if (this.lastBy && game.t - this.lastHitT < 9) this.lastBy.kos++;
-    Duel.onKO(this);
+    Duel.onKO(this, mode);
   }
-  respawn() { const h = deck.home; this.x = h[0]; this.z = h[1]; this.y = 7; this.yaw = 0; this.root.visible = true; this.ring.visible = true; if (this.cloak) { this.cloak.visible = true; this.root.position.set(this.x, this.y, this.z); this.root.updateMatrixWorld(true); this.resetCloak(); } this.sh = 100; this.setState('respawn'); this.inv = 3; }
+  respawn() { const h = deck.home; this.x = h[0]; this.z = h[1]; this.y = 7; this.yaw = 0; this.fallSc = 1; this.fallTr.length = 0; this.root.scale.setScalar(this.def.scale); this.root.visible = true; this.ring.visible = true; if (this.cloak) { this.cloak.visible = true; this.root.position.set(this.x, this.y, this.z); this.root.updateMatrixWorld(true); this.resetCloak(); } this.sh = 100; this.setState('respawn'); this.inv = 3; }
   land(soft) {
     const S = this.state; this.air = false; this.y = 0; this.vy = 0; this.airDodged = false; this.float = 0;
     if (S === 'hurt' && !soft) {
@@ -239,24 +244,29 @@ class Fighter {
       this.x = nx; this.z = nz; arenaCollide(this); const kd = Math.exp(-7 * dt); this.kx *= kd; this.kz *= kd;
       if (!overFloor(this.x, this.z)) { const nf = nearestFloor(this.x, this.z); this.x = nf[0]; this.z = nf[1]; }
     } else {
-      const py = this.y; if (this.float > 0) { this.float -= dt; this.vy = damp(this.vy, .6, 6, dt); } else this.vy = Math.max(-19, this.vy - GRAV * d.fall * dt);
+      const py = this.y; if (this.float > 0) { this.float -= dt; this.vy = damp(this.vy, .6, 6, dt); } else this.vy = Math.max(S === 'fall' ? -23 : -19, this.vy - GRAV * d.fall * dt);
       this.x += (this.vx + this.kx) * dt; this.z += (this.vz + this.kz) * dt; this.y += this.vy * dt;
       if (py >= -.02 && this.y <= 0 && this.vy <= 0 && overFloor(this.x, this.z)) this.land(false);
       else {
         if (arenaCollide(this)) { const sp = Math.hypot(this.kx, this.kz), nl = Math.hypot(_hitN[0], _hitN[1]) || 1, nx = _hitN[0] / nl, nz = _hitN[1] / nl, dn = this.kx * nx + this.kz * nz; if (dn < 0) { this.kx -= 1.75 * dn * nx; this.kz -= 1.75 * dn * nz; if (sp > 9 && S === 'hurt') { FX.puff(this.x, this.y + .8, this.z, 6, .3, 3, .7, .4); FX.shake(.15); SFX.play('slam', this.x, this.z, .6, 1.1); } } const vn = this.vx * nx + this.vz * nz; if (vn < 0) { this.vx -= vn * nx; this.vz -= vn * nz; } }
         if (this.y < -.45 && S !== 'fall') this.doom();
       }
-      const kd = Math.exp(-2.25 * dt); this.kx *= kd; this.kz *= kd;
-      if (this.air && (this.y < deck.koY || dist2(this.x, this.z, deck.cx, deck.cz) > deck.blastR * deck.blastR)) { if (this.tether) this.rescue(); else this.ko(); }
+      const kd = Math.exp((S === 'fall' ? -1.15 : -2.25) * dt); this.kx *= kd; this.kz *= kd;
+      const od = Math.hypot(this.x - deck.cx, this.z - deck.cz), outR = od > deck.blastR;
+      if (this.air && this.tether && (this.y < Math.max(deck.koY, -2.4) || outR)) { this.rescue(); }
+      else if (this.air && (this.y < deck.koY || outR)) {
+        const mode = deck.theme.id === 'foundry' && !outR ? 'lava' : (outR || (od > deck.R + 3.2 && Math.hypot(this.kx, this.kz) > 7.5)) ? 'blast' : 'void';
+        this.ko(mode);
+      }
     }
     this.speedNow = Math.hypot(this.x - ox, this.z - oz) / Math.max(dt, 1e-4);
     // a comet tail while you are flying
     if (S === 'hurt' && this.air && this.speedNow > 9) { this.trailT -= dt; if (this.trailT <= 0) { this.trailT = .022; const c = d.col; FX.add.spawn(this.x, this.y + .9 * d.scale, this.z, RS(.5), RS(.5), RS(.5), .4, .2, c[0] * .5, c[1] * .5, c[2] * .5, 0, 1); FX.smoke(this.x, this.y + .8, this.z, 1, .2, .7, .3, .5, .2); } }
   }
   doom() {
-    this.cancel(); this.setState('fall'); const nf = nearestFloor(this.x, this.z); SFX.play('fall', this.x, this.z, 1, 1); Duel.onFall(this, nf[0], nf[1]);
+    this.cancel(); this.setState('fall'); this.fallTr.length = 0; this.fallTrT = 0; const nf = nearestFloor(this.x, this.z); SFX.play('fall', this.x, this.z, 1, 1); Duel.onFall(this, nf[0], nf[1]);
   }
-  rescue(quiet) { this.tether = false; this.cancel(); const h = deck.home, c = [1.2, 3, 6.5]; Arcs.bolt(this.x, this.y + 1, this.z, h[0], 6, h[1], c[0], c[1], c[2], .5, 8); this.x = h[0]; this.z = h[1]; this.y = 5; this.vy = 0; this.kx = this.kz = this.vx = this.vz = 0; this.setState('air'); this.inv = 1.2; FX.burst(this.x, 5, this.z, 24, c[0], c[1], c[2], 4, .6, .12); SFX.play('blink', this.x, this.z, 1, 1); if (!quiet) Duel.banner('TETHER', .7, '#8fd6ff'); }
+  rescue(quiet) { this.tether = false; this.cancel(); const h = deck.home, c = [1.2, 3, 6.5]; Arcs.bolt(this.x, this.y + 1, this.z, h[0], 6, h[1], c[0], c[1], c[2], .5, 8); this.x = h[0]; this.z = h[1]; this.y = 5; this.vy = 0; this.kx = this.kz = this.vx = this.vz = 0; this.fallSc = 1; this.fallTr.length = 0; this.root.scale.setScalar(this.def.scale); this.setState('air'); this.inv = 1.2; FX.burst(this.x, 5, this.z, 24, c[0], c[1], c[2], 4, .6, .12); SFX.play('blink', this.x, this.z, 1, 1); if (!quiet) Duel.banner('TETHER', .7, '#8fd6ff'); }
   // ------------------------------------------------------------------ cloak (verlet cloth pinned across the shoulders)
   pin(c, out) { const u = c / (CL_C - 1) * 2 - 1; return out.set(u * .27, 1.5 - Math.abs(u) * .05, -.13 - (1 - u * u) * .07).applyMatrix4(this.root.matrixWorld); }
   resetCloak() {
@@ -268,42 +278,130 @@ class Fighter {
     const h = f * .5; p[ja] += dx * h; p[ja + 1] += dy * h; p[ja + 2] += dz * h; p[jb] -= dx * h; p[jb + 1] -= dy * h; p[jb + 2] -= dz * h;
   }
   simCloak(dt) {
-    const p = this.cp, q = this.cq, n = CL_C * CL_R, t = uTime.value, fx = this.fx, fz = this.fz, gy = this.y + .06, h = Math.min(dt, 1 / 40), dm = .965, wx = Math.sin(t * 1.7) * .6, wz = Math.cos(t * 1.3) * .6;
+    const p = this.cp, q = this.cq, n = CL_C * CL_R, t = uTime.value, fx = this.fx, fz = this.fz, gy = this.y + .06, h = Math.min(dt, 1 / 40), dm = .965, wx = Math.sin(t * 1.7) * .6, wz = Math.cos(t * 1.3) * .6, fs = this.fallSc, gyA = this.state === 'fall' ? 10 : -7.5;
     if (dist2(p[0], p[2], this.x, this.z) > 9) { this.resetCloak(); }
-    for (let i = CL_C; i < n; i++) { const j = i * 3, nx = p[j] + (p[j] - q[j]) * dm + (wx + Math.sin(t * 5 + i) * .8) * h * h, ny = p[j + 1] + (p[j + 1] - q[j + 1]) * dm - 7.5 * h * h, nz = p[j + 2] + (p[j + 2] - q[j + 2]) * dm + (wz + Math.cos(t * 4 + i * 1.3) * .8) * h * h; q[j] = p[j]; q[j + 1] = p[j + 1]; q[j + 2] = p[j + 2]; p[j] = nx; p[j + 1] = ny; p[j + 2] = nz; }
+    for (let i = CL_C; i < n; i++) { const j = i * 3, nx = p[j] + (p[j] - q[j]) * dm + (wx + Math.sin(t * 5 + i) * .8) * h * h, ny = p[j + 1] + (p[j + 1] - q[j + 1]) * dm + gyA * h * h, nz = p[j + 2] + (p[j + 2] - q[j + 2]) * dm + (wz + Math.cos(t * 4 + i * 1.3) * .8) * h * h; q[j] = p[j]; q[j + 1] = p[j + 1]; q[j + 2] = p[j + 2]; p[j] = nx; p[j + 1] = ny; p[j + 2] = nz; }
     for (let c = 0; c < CL_C; c++) { this.pin(c, _v1); const j = c * 3; p[j] = q[j] = _v1.x; p[j + 1] = q[j + 1] = _v1.y; p[j + 2] = q[j + 2] = _v1.z; }
     for (let it = 0; it < 3; it++) {
-      for (let r = 0; r < CL_R; r++) for (let c = 0; c < CL_C; c++) { const i = r * CL_C + c; if (c < CL_C - 1) this.link(i, i + 1, .09 + r * .0085, r === 0 ? 2 : 0); if (r < CL_R - 1) this.link(i, i + CL_C, .16, r === 0 ? 1 : 0); }
+      for (let r = 0; r < CL_R; r++) for (let c = 0; c < CL_C; c++) { const i = r * CL_C + c; if (c < CL_C - 1) this.link(i, i + 1, (.09 + r * .0085) * fs, r === 0 ? 2 : 0); if (r < CL_R - 1) this.link(i, i + CL_C, .16 * fs, r === 0 ? 1 : 0); }
       if (this.rX === 0) for (let i = CL_C; i < n; i++) { const j = i * 3, dx = p[j] - this.x, dz = p[j + 2] - this.z, lz = dx * fx + dz * fz; if (lz > -.11 && p[j + 1] < this.y + 1.5) { const push = lz + .11; p[j] -= fx * push; p[j + 2] -= fz * push; } if (!this.air && p[j + 1] < gy) p[j + 1] = gy; }
     }
     this.cPos.array.set(p); this.cPos.needsUpdate = true; this.cloak.geometry.computeVertexNormals();
   }
 }
-// ------------------------------------------------------------------ a lost stock: the fighter comes apart into its own parts, which tumble away and are gone
-const Shatter = {
+// ------------------------------------------------------------------ a lost stock: Voidlight Flare (vertical lance / angled blast-beam + 4-point star-glint + shock rings) or Foundry lava plunge
+const LANCE_FS = `uniform float uProg, uTime; uniform vec3 uCol; varying vec2 vUv;
+  void main(){
+    float t = uProg, open = smoothstep(0., .06, t), pinch = max(.045, pow(max(0., 1. - t), 1.4));
+    float x = abs(vUv.x - .5)*2. / pinch;
+    float core = exp(-x*x*18.)*smoothstep(1.5, 0., x), sheath = exp(-x*x*3.2)*smoothstep(1.3, 0., x);
+    float grow = smoothstep(0., .14, t), head = smoothstep(grow + .09, max(0., grow - .22), vUv.y);
+    float yFade = smoothstep(0., .06, vUv.y)*smoothstep(1., .22, vUv.y), band = .82 + .18*sin(vUv.y*22. - uTime*26.);
+    float env = open*pow(max(0., 1. - t), 1.12);
+    vec3 col = (uCol*sheath*.62 + mix(uCol, vec3(1.75, 1.7, 1.65), .72)*core*1.55)*yFade*head*band*env;
+    gl_FragColor = vec4(col, 1.);
+  }`;
+const STAR_FS = `uniform float uProg; uniform vec3 uCol; varying vec2 vUv;
+  void main(){
+    vec2 p = vUv*2. - 1.; float t = uProg, pop = smoothstep(0., .1, t);
+    float sc = mix(.3, 1., pop)*(1. - smoothstep(.16, 1., t)*.76); vec2 q = p / max(.06, sc); float r = length(q);
+    float h = exp(-abs(q.y)*24.)*smoothstep(1., 0., abs(q.x)), v = exp(-abs(q.x)*24.)*smoothstep(1., 0., abs(q.y));
+    vec2 d = vec2(q.x + q.y, q.x - q.y)*.7071;
+    float dg = (exp(-abs(d.y)*30.)*smoothstep(.52, 0., abs(d.x)) + exp(-abs(d.x)*30.)*smoothstep(.52, 0., abs(d.y)))*.55;
+    float core = exp(-r*r*26.)*1.5, env = smoothstep(0., .05, t)*pow(max(0., 1. - t), 1.35);
+    vec3 col = mix(uCol*1.4, vec3(2.2, 2.15, 2.1), clamp(core*.7 + (h + v)*.45, 0., 1.))*(h + v + dg + core)*env;
+    gl_FragColor = vec4(col, 1.);
+  }`;
+const KRING_FS = `uniform float uProg; uniform vec3 uCol; varying vec2 vUv;
+  void main(){
+    float r = length(vUv*2. - 1.), t = uProg, rad = .1 + .88*(1. - (1. - t)*(1. - t)), w = mix(.085, .022, t);
+    float ring = smoothstep(w, 0., abs(r - rad))*step(r, 1.), env = (1. - t)*(1. - t*.35);
+    gl_FragColor = vec4(mix(uCol*1.25, vec3(1.85), ring*.45)*ring*env, 1.);
+  }`;
+const VoidFX = {
   list: [],
-  burst(f) {
-    const b = f.rig.b, cy = f.y + .9 * f.def.scale; f.root.updateMatrixWorld(true);
-    for (const name in b) {
-      const o = b[name], e = o.matrixWorld.elements;
-      for (const m of o.children) {
-        if (!m.geometry) continue; const p = new Mesh(m.geometry, m.material), M = new Matrix4().copy(o.matrixWorld); M.elements[12] = M.elements[13] = M.elements[14] = 0;
-        p.matrixAutoUpdate = false; p.castShadow = true; p.frustumCulled = false; p.renderOrder = m.renderOrder; scene.add(p);
-        const dx = e[12] - f.x, dy = e[13] - cy, dz = e[14] - f.z, dl = Math.hypot(dx, dy, dz) || 1, sp = R(3.5, 8);
-        this.list.push({ p, M, x: e[12], y: e[13], z: e[14], vx: dx / dl * sp + f.kx * .2 + RS(1.6), vy: R(7, 12) + dy / dl * 2.5, vz: dz / dl * sp + f.kz * .2 + RS(1.6), rx: 0, ry: 0, rz: 0, wx: RS(8), wy: RS(8), wz: RS(8), t: 0, life: R(1.4, 2.1) });
+  mkMat(fs, nr, ng, nb) {
+    return new ShaderMaterial(Object.assign({
+      uniforms: { uProg: { value: 0 }, uTime, uCol: { value: new Color(nr, ng, nb) } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position, 1.); }',
+      fragmentShader: fs, side: DoubleSide
+    }, ADD_BLEND));
+  },
+  addLance(x, y, z, dx, dy, dz, w, len, dur, nr, ng, nb) {
+    const g = new Group(), mat = this.mkMat(LANCE_FS, nr, ng, nb);
+    for (const ry of [PI / 4, -PI / 4]) { const m = new Mesh(G.planeB, mat); m.scale.set(w, len, 1); m.rotation.y = ry; m.frustumCulled = false; m.renderOrder = 15; g.add(m); }
+    g.position.set(x, y, z); _q1.setFromUnitVectors(_Y, _v1.set(dx, dy, dz)); g.matrixAutoUpdate = false; g.matrix.compose(g.position, _q1, _v2.set(1, 1, 1));
+    scene.add(g); this.list.push({ obj: g, mat, t: 0, dur, delay: 0, kind: 0 });
+  },
+  addStar(x, y, z, size, dur, nr, ng, nb) {
+    const mat = this.mkMat(STAR_FS, nr, ng, nb), m = new Mesh(G.plane, mat);
+    m.frustumCulled = false; m.renderOrder = 16; m.matrixAutoUpdate = false;
+    scene.add(m); this.list.push({ obj: m, mat, t: 0, dur, delay: 0, kind: 1, x, y, z, size });
+  },
+  addRing(x, y, z, nx, ny, nz, rad, dur, nr, ng, nb, delay = 0) {
+    const mat = this.mkMat(KRING_FS, nr, ng, nb), m = new Mesh(G.planeUp, mat);
+    m.frustumCulled = false; m.renderOrder = 14; m.matrixAutoUpdate = false; m.visible = delay <= 0;
+    _q1.setFromUnitVectors(_Y, _v1.set(nx, ny, nz)); m.matrix.compose(_v2.set(x, y, z), _q1, _v3.set(rad * 2, 1, rad * 2));
+    scene.add(m); this.list.push({ obj: m, mat, t: 0, dur, delay, kind: 2 });
+  },
+  burst(f, mode) {
+    const c = f.def.col, cm = Math.max(c[0], c[1], c[2], 1), nr = c[0] / cm, ng = c[1] / cm, nb = c[2] / cm;
+    const x = f.x, y = mode === 'lava' ? -2.22 : f.y + .4 * f.def.scale * f.fallSc, z = f.z;
+    if (mode === 'lava') {
+      // Foundry magma plunge: volcanic ash billow for dark contrast + incandescent splash + surface ripples
+      this.addRing(x, -2.14, z, 0, 1, 0, 4.2, .52, 1, .38, .06, 0);
+      this.addRing(x, -2.12, z, 0, 1, 0, 2.5, .4, 1, .75, .25, .07);
+      this.addLance(x, -2.25, z, 0, 1, 0, 1.5, 11, .44, 1, .35, .08);
+      FX.smoke(x, -2.0, z, 18, .05, 1.85, 3.2, 1.6, .85, .5, .28, .22);
+      FX.puff(x, -1.9, z, 12, .06, 3.2, 1.35, .95);
+      FX.spark(x, -2.05, z, 42, 9, 3.2, .5, 10, .95, .17, 17);
+      FX.embers(x, -2.0, z, 28, 8, 2.2, .3, 1.1);
+      Lights.flash(x, -.4, z, 1, .35, .08, 60, .48, 17);
+      return;
+    }
+    if (mode === 'blast') {
+      // High-speed Smash launch: angled Voidlight Streak shooting back toward the deck + crisp Star-KO glint
+      const ox = deck.cx - x, oz = deck.cz - z, oy = Math.max(.4 - y, .3), ol = Math.hypot(ox, oy, oz) || 1, dx = ox / ol, dy = oy / ol, dz = oz / ol;
+      this.addLance(x, y, z, dx, dy, dz, 1.45, 13.5, .54, nr, ng, nb);
+      this.addStar(x, y, z, 4.8, .48, nr, ng, nb);
+      this.addRing(x, y, z, dx, dy, dz, 3.4, .4, nr, ng, nb, 0);
+      this.addRing(x + dx * 1.5, y + dy * 1.5, z + dz * 1.5, dx, dy, dz, 2.0, .32, nr, ng, nb, .05);
+      for (let i = 0; i < 24; i++) {
+        const s = R(3, 14);
+        FX.add.spawn(x + RS(.4), y + RS(.4), z + RS(.4), dx * s + RS(2.2), dy * s + RS(2.2), dz * s + RS(2.2), R(.35, .75), R(.06, .13), c[0] * .75, c[1] * .75, c[2] * .75, 0, 2.2);
+      }
+      Lights.flash(x + dx * 2, Math.max(y, -.5), z + dz * 2, nr, ng, nb, 42, .35, 16);
+      return;
+    }
+    // Space Void Plummet: distant 4-point Star-Glint + tall vertical Voidlight Lance rising past the rim + crisp rings
+    this.addLance(x, y - .4, z, 0, 1, 0, 1.35, 18.5, .6, nr, ng, nb);
+    this.addStar(x, y, z, 4.6, .5, nr, ng, nb);
+    this.addRing(x, y, z, 0, 1, 0, 3.2, .44, nr, ng, nb, 0);
+    this.addRing(x, -.18, z, 0, 1, 0, 2.2, .38, nr, ng, nb, .06);
+    for (let i = 0; i < 26; i++) {
+      const a = R(TAU), rr = R(.15, .95);
+      FX.add.spawn(x + Math.cos(a) * rr, y + R(0, 4.5), z + Math.sin(a) * rr, Math.cos(a) * R(.2, 1.1), R(3, 10), Math.sin(a) * R(.2, 1.1), R(.45, .95), R(.05, .11), c[0] * .75, c[1] * .75, c[2] * .75, -.6, 1.2);
+    }
+    Lights.flash(x, .5, z, nr, ng, nb, 38, .35, 15);
+  },
+  update(dt, raw) {
+    const L = this.list, step = Math.max(dt, (raw || dt) * .45);
+    for (let i = L.length - 1; i >= 0; i--) {
+      const it = L[i];
+      if (it.delay > 0) { it.delay -= step; if (it.delay <= 0) it.obj.visible = true; continue; }
+      it.t += step;
+      if (it.t >= it.dur) { scene.remove(it.obj); L[i] = L[L.length - 1]; L.pop(); continue; }
+      it.mat.uniforms.uProg.value = it.t / it.dur;
+      if (it.kind === 1) {
+        const e = it.obj.matrix.elements, s = it.size;
+        e[0] = CAM.right.x * s; e[1] = CAM.right.y * s; e[2] = CAM.right.z * s; e[3] = 0;
+        e[4] = CAM.up.x * s; e[5] = CAM.up.y * s; e[6] = CAM.up.z * s; e[7] = 0;
+        e[8] = -CAM.fwd.x; e[9] = -CAM.fwd.y; e[10] = -CAM.fwd.z; e[11] = 0;
+        e[12] = it.x; e[13] = it.y; e[14] = it.z; e[15] = 1;
       }
     }
   },
-  update(dt) {
-    const L = this.list;
-    for (let i = L.length - 1; i >= 0; i--) {
-      const it = L[i]; it.t += dt; it.vy -= 24 * dt; it.x += it.vx * dt; it.y += it.vy * dt; it.z += it.vz * dt; it.rx += it.wx * dt; it.ry += it.wy * dt; it.rz += it.wz * dt;
-      if (deck && it.y < .12 && it.y > -.3 && it.vy < 0 && overFloor(it.x, it.z)) { it.y = .12; it.vy *= -.34; it.vx *= .6; it.vz *= .6; it.wx *= .5; it.wy *= .5; it.wz *= .5; }
-      if (it.t > it.life) { scene.remove(it.p); L[i] = L[L.length - 1]; L.pop(); continue; }
-      const k = sat((it.life - it.t) / .25); _e1.set(it.rx, it.ry, it.rz); _q1.setFromEuler(_e1); _m1.compose(_v1.set(it.x, it.y, it.z), _q1, _v2.set(k, k, k)); it.p.matrix.multiplyMatrices(_m1, it.M);
-    }
-  },
-  clear() { for (const it of this.list) scene.remove(it.p); this.list.length = 0; }
+  clear() { for (const it of this.list) scene.remove(it.obj); this.list.length = 0; }
 };
 // ------------------------------------------------------------------ hit resolution: gather every blow that lands this tick, then apply, so trades are possible
 function inHit(f, m, v) {

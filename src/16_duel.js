@@ -240,7 +240,7 @@ const Duel = {
   },
   pick(i) { if (game.state === 'title') { game.state = 'select'; SFX.play('pickup', RIDE.x, RIDE.z, .6, 1.2); } else if (i === this.sel) this.begin(); else this.show(i); },
   clearArena() {
-    Shatter.clear(); for (const f of fighters) if (f !== hero) f.dispose(); if (hero) hero.fresh(); fighters.length = 0; if (hero) fighters.push(hero); this.cpu = null; this.auto = null;
+    VoidFX.clear(); for (const f of fighters) if (f !== hero) f.dispose(); if (hero) hero.fresh(); fighters.length = 0; if (hero) fighters.push(hero); this.cpu = null; this.auto = null;
     if (deck) { disposeDeck(deck); deck = null; } FX.clearDeck(); Bolts.mesh.count = 0; Lights.clear(); Post.hazes = [];
   },
   toMenu(state) {
@@ -248,13 +248,14 @@ const Duel = {
   },
   begin() { if (game.state !== 'select') return; this.depth = this.from; this.from = 0; this.stats = { kos: 0, dmg: 0, falls: 0 }; this.bag = []; this.bestNew = false; hero.stocks = 3; this.save(); SFX.play('unseal', RIDE.x, RIDE.z, .8, 1); startRide(true); },
   nextFoe() { if (!this.bag.length) { this.bag = ROSTER.filter(d => d !== hero.def); rnd.shuffle(this.bag); } return this.bag.pop(); },
-  onFall(f, ex, ez) { FX.slowmo(.16, .5); FX.shake(.2); this.fallX = ex; this.fallZ = ez; if (f === hero) Touch.buzz(30); },
-  onKO(f) {
-    // the body has already come apart (Shatter). Here: a handful of thin rays, a freeze, a jolt. Nothing soft, nothing glowing
-    const c = f.def.col, lim = deck.R + 6, ox = f.x - deck.cx, oz = f.z - deck.cz, od = Math.hypot(ox, oz) || 1, k = Math.min(1, lim / od), x = deck.cx + ox * k, z = deck.cz + oz * k, y = Math.max(f.y, -1.5) + .9;
-    this.koX = x; this.koZ = z; this.koT = 1.1; const rays = []; for (let i = 0; i < 12; i++) rays.push([R(TAU), R(.5, 1), R(-.2, .7)]); let rt = 0;
-    deck.zones.push({ upd(dt) { rt += dt; const q = rt / .28, a = 1 - q; for (const r of rays) { const l0 = .5 + q * 5 * r[1], l1 = l0 + a * 2.2 * r[1], cx = Math.cos(r[0]), cz = Math.sin(r[0]); Arcs.line(x + cx * l0, y + r[2] * l0 * .6, z + cz * l0, x + cx * l1, y + r[2] * l1 * .6, z + cz * l1, (c[0] * .3 + .5) * a, (c[1] * .3 + .5) * a, (c[2] * .3 + .5) * a); } return rt < .28; } });
-    FX.hitStop(.11); FX.shake(.6); FX.slowmo(.4, .3); SFX.play('smash', CAM.x, CAM.z, .9, .9); SFX.play('crack', CAM.x, CAM.z, .9, .7); SFX.play('boom', CAM.x, CAM.z, .45, .8);
+  onFall(f, ex, ez) { FX.slowmo(.14, .6); FX.shake(.18); this.fallX = ex; this.fallZ = ez; if (f === hero) Touch.buzz(30); },
+  onKO(f, mode) {
+    // VoidFX handles the visual punctuation (Voidlight Lance + Star-Glint, Blast Streak, or Foundry lava plunge).
+    const lim = deck.R + 6, ox = f.x - deck.cx, oz = f.z - deck.cz, od = Math.hypot(ox, oz) || 1, k = Math.min(1, lim / od), x = deck.cx + ox * k, z = deck.cz + oz * k;
+    this.koX = x; this.koZ = z; this.koT = .85;
+    FX.hitStop(.08); FX.shake(mode === 'blast' ? .55 : .42); FX.slowmo(.28, .42);
+    if (mode === 'lava') SFX.play('lavako', CAM.x, CAM.z, .95, 1);
+    else SFX.play('voidko', CAM.x, CAM.z, .95, mode === 'blast' ? 1.15 : 1);
     if (f === hero) { this.stats.falls++; Touch.buzz(80); } else this.stats.kos++;
     if (f.stocks <= 0) {
       game.state = 'end'; this.pt = 0; this.won = f !== hero; this.banner(this.won ? 'VICTORY' : 'DEFEATED', 2.4, this.won ? '#ffd76a' : '#ff5a3c', true); Music.sting(this.won); Music.target = 0; Music.boss = false;
@@ -346,7 +347,7 @@ function tick(raw) {
   const dt = Math.min(1 / 30, raw) * ts; game.dt = dt; game.t += dt; uTime.value += dt;
   Arcs.begin(); Duel.update(dt, raw); Arcs.end();
   RIDE.off = (RIDE.off + RIDE.v * raw) % 4; RIDE.scroll.position.y = RIDE.off;
-  Shatter.update(dt); updateCamera(raw); Lights.update(dt, CAM.x, CAM.z); FX.update(dt, CAM.x, CAM.z); SFX.update(raw);
+  VoidFX.update(dt, raw); updateCamera(raw); Lights.update(dt, CAM.x, CAM.z); FX.update(dt, CAM.x, CAM.z); SFX.update(raw);
   const st = game.state; game.fade = damp(game.fade, game.fadeTo, game.fadeTo > game.fade ? 5 : 9, raw); game.hurt = Math.max(0, game.hurt - raw * 2.2); game.flash = Math.max(0, game.flash - raw * 2.5);
   game.desat = damp(game.desat, st === 'results' || (st === 'end' && !Duel.won) ? .75 : 0, 3, raw);
   FINU.uFade.value = game.fade; FINU.uHurt.value = game.hurt * .25; FINU.uFlash.value = game.flash; FINU.uDesat.value = game.desat;

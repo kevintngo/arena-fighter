@@ -182,6 +182,6 @@ function applyTheme(th) {
   moon.color.setRGB(.55 + th.sky[0] * .3, .62 + th.sky[1] * .3, .8 + th.sky[2] * .2);
   FINU.uExposure.value = th.exposure * 1.07; FINU.uAccent.value.setRGB(a[0], a[1], a[2]);
   VOLU.uDensity.value = th.dens; VOLU.uMist.value = th.mist; VOLU.uMistCol.value.setRGB(th.mistCol[0], th.mistCol[1], th.mistCol[2]); RESU.uRipple.value = th.ripple || 0;
-  SKYP.uNebA.value.setRGB(th.neb[0][0], th.neb[0][1], th.neb[0][2]); SKYP.uNebB.value.setRGB(th.neb[1][0], th.neb[1][1], th.neb[1][2]); SKYP.uNebC.value.setRGB(th.neb[2][0], th.neb[2][1], th.neb[2][2]); SKYP.uGain.value = th.skyGain || 1;
+  SKYP.uNebA.value.setRGB(th.neb[0][0], th.neb[0][1], th.neb[0][2]); SKYP.uNebB.value.setRGB(th.neb[1][0], th.neb[1][1], th.neb[1][2]); SKYP.uNebC.value.setRGB(th.neb[2][0], th.neb[2][1], th.neb[2][2]); SKYP.uGain.value = (th.skyGain || 1) * 1.18;
   FX.ambient = th.ambient; FX.moteU.uAmb.value.setRGB(th.sky[0], th.sky[1], th.sky[2]);
 }

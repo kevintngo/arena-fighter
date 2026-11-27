@@ -2,8 +2,15 @@
 //  FIGHTER ANIMATION: procedural poses for bipeds, the hound and the storm engine, driven by state and move timing
 // =====================================================================================
 Fighter.prototype.animate = function (dt) {
-  const d = this.def, S = this.state, st = this.st, t = uTime.value, b = this.rig.b, m = this.move, sc = d.scale;
-  const sp = (S === 'idle' && !this.air) ? Math.min(this.speedNow, 8) : 0; this.moveAmt = damp(this.moveAmt, sat(sp / (d.speed * .55)), 12, dt); this.ph += sp * dt * (d.gait || 2.3) / sc;
+  const d = this.def, S = this.state, st = this.st, t = uTime.value, b = this.rig.b, m = this.move;
+  let fsc = 1, vProg = 0;
+  if (deck && this.air && S !== 'respawn' && S !== 'intro' && S !== 'ride') {
+    const lava = deck.theme.id === 'foundry', pd = lava ? sat((-this.y - .4) / 6) * .25 : sat((-this.y - .35) / 4.25);
+    const od = Math.hypot(this.x - deck.cx, this.z - deck.cz), pr = sat((od - deck.R - 1) / 7.2);
+    vProg = Math.max(pd, pr * .88); fsc = 1 / (1 + vProg * 2.5);
+  }
+  this.fallSc = fsc; const sc = d.scale * fsc;
+  const sp = (S === 'idle' && !this.air) ? Math.min(this.speedNow, 8) : 0; this.moveAmt = damp(this.moveAmt, sat(sp / (d.speed * .55)), 12, dt); this.ph += sp * dt * (d.gait || 2.3) / d.scale;
   const mA = this.moveAmt, ph = this.ph, s1 = Math.sin(ph), c1 = Math.cos(ph), stepN = Math.floor(ph / PI);
   if (stepN !== this.lastStep && mA > .35 && !this.air) { this.lastStep = stepN; SFX.step(this.x, this.z); if (R() < .5) FX.puff(this.x, .08, this.z, 1, .12, .7, .35, .5); }
   // move progress: wind-up, strike, recovery
@@ -13,7 +20,7 @@ Fighter.prototype.animate = function (dt) {
   const e = pa * pa * (3 - 2 * pa);
   let rX = 0, rY = 0, rZ = 0, yo = 0, k = 18, pivot = .9 * sc;
   const tumble = S === 'fall' || (S === 'hurt' && this.air && this.kb > 9);
-  if (tumble) { this.rX += dt * (S === 'fall' ? 8 : 11); rX = this.rX; k = 60; }
+  if (tumble) { this.rX += dt * (S === 'fall' ? 7.5 : 11); rX = this.rX; if (S === 'fall') rZ = Math.sin(st * 5.2 + this.side * 2) * .45; k = 60; }
   else if (S === 'roll') { rX = st / ROLL_T * TAU; k = 60; }
   else if (S === 'down') { rX = -1.5; yo = .12; pivot = .25; k = 30; }
   else if (S === 'dizzy') { rZ = Math.sin(t * 5) * .16; rX = Math.cos(t * 3.7) * .1; }
@@ -83,11 +90,13 @@ Fighter.prototype.animate = function (dt) {
   this.arcA = an === 'slash' || an === 'spin' ? this.arcA : Math.max(0, this.arcA - dt * 7); this.arcU.uAlpha.value = this.arcA * (this.pow > 1 ? 1.3 : .85); if (this.arcA <= 0 && S !== 'attack') this.arc.visible = false;
   // root: spin about the body's middle so rolls and tumbles do not pivot on the feet
   const cx = Math.cos(rX), sx = Math.sin(rX), py = pivot * (1 - cx), pz = -pivot * sx;
+  this.root.scale.setScalar(sc);
   this.root.position.set(this.x + this.fx * pz, this.y + yo + py, this.z + this.fz * pz); this.root.rotation.set(rX, this.yaw + rY, rZ); this.root.rotation.order = 'YXZ';
   this.root.visible = S !== 'dead' && !(this.inv > 0 && game.state === 'fight' && (S === 'idle' || S === 'air' || S === 'shield' || S === 'attack' || S === 'charge' || S === 'lag') && Math.sin(t * 46) > .55);
   this.root.updateMatrixWorld(true);
-  // glow: hit flash, charge, overcharge, counter stance
+  // glow: hit flash, charge, overcharge, counter stance, pre-vanish voidlight gleam
   const c = d.col; let fl = this.flash, fr = 1, fg = .3, fb = .25; if (S === 'dead') { fl *= .6; fg = fb = 1; }
+  if (S === 'fall' && deck && deck.theme.id !== 'foundry' && vProg > .6) { const pf = sat((vProg - .6) / .4); fl = Math.max(fl, pf * .75); fr = c[0] / 6 + .35; fg = c[1] / 6 + .35; fb = c[2] / 6 + .35; }
   if (S === 'charge') { fl = Math.max(fl, .12 + .2 * sat(this.chT) * (.6 + .4 * Math.sin(t * 40))); fr = c[0] / 6; fg = c[1] / 6; fb = c[2] / 6; }
   if (this.over > 0) { fl = Math.max(fl, .16 + .08 * Math.sin(t * 12)); fr = 1; fg = .5; fb = .12; if (R() < dt * 20) FX.add.spawn(this.x + RS(.4), this.y + R(.2, 1.8), this.z + RS(.4), 0, R(.5, 1.5), 0, .5, .07, 5, 2.2, .5, 0, 0); }
   if (this.counterT > 0) { fl = Math.max(fl, .3); fr = fg = fb = 1; }

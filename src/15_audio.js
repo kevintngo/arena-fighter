@@ -77,6 +77,18 @@ const SOUNDS = {
   blink: (o, t, v) => { SV.tone(o, t, 'sine', 1900, 300, .16, .16 * v); SV.noise(o, t, .14, .1 * v, 'highpass', 5000, 1800); },
   dash: (o, t, v) => { SV.noise(o, t, .16, .26 * v, 'bandpass', 800, 3200, .9); },
   fall: (o, t, v) => { SV.tone(o, t, 'sawtooth', 440, 52, 1.2, .26 * v, .02); SV.tone(o, t, 'sawtooth', 330, 41, 1.3, .2 * v, .02); SV.tone(o, t + .5, 'sine', 80, 30, .9, .5 * v); },
+  voidko: (o, t, v, p) => {
+    SV.tone(o, t, 'sine', 135 * p, 32, .85, .62 * v, .005);
+    SV.noise(o, t, .42, .26 * v, 'bandpass', 2400 * p, 240, 1.8, .01);
+    SV.tone(o, t + .01, 'sine', 1320 * p, 1320 * p, .75, .14 * v, .004);
+    SV.tone(o, t + .02, 'triangle', 1980 * p, 1960 * p, .55, .09 * v, .004);
+    SV.tone(o, t + .05, 'sine', 2640 * p, 2600 * p, .45, .06 * v, .008);
+  },
+  lavako: (o, t, v, p) => {
+    SV.tone(o, t, 'sine', 110 * p, 34, .65, .65 * v, .006);
+    SV.noise(o, t, .75, .48 * v, 'bandpass', 1800, 360, 1.1, .01);
+    SV.noise(o, t + .04, .9, .26 * v, 'highpass', 3200, 2200, .9, .04);
+  },
   rise: (o, t, v) => { [262, 392, 523, 784, 1046].forEach((f, i) => SV.tone(o, t + i * .11, 'sine', f, f, 1, .13 * v, .03)); SV.noise(o, t, 1, .08 * v, 'highpass', 1500, 8000, 1, .5); },
   bossDie: (o, t, v) => { SV.noise(o, t, 2.4, .5 * v, 'lowpass', 1800, 70, 1, .05); for (const f of [220, 277, 330, 415]) SV.tone(o, t, 'sawtooth', f, f * .2, 2.2, .12 * v, .02); },
   // footsteps by surface
